@@ -56,30 +56,72 @@ def isolate_song_parts(song_filepath: str):
 
 
 def get_key_and_bpm(song_file: str):
-    audio_file = librosa.load(song_file)
+    # Load the audio file
+    y, sr = librosa.load(song_file)
 
-    y, sr = audio_file
-
+    # Estimate the tempo (BPM)
     tempo, beat_frames = librosa.beat.beat_track(y=y, sr=sr)
 
-    # Compute the Chroma Short-Time Fourier Transform (chroma_stft)
+    # Compute the Chroma feature
     chromagram = librosa.feature.chroma_stft(y=y, sr=sr)
-
+    
     # Calculate the mean chroma feature across time
     mean_chroma = np.mean(chromagram, axis=1)
 
-    # Define the mapping of chroma features to keys
+    # Define musical keys (C, C#, D, ... B)
     chroma_to_key = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
 
-    # Find the key by selecting the maximum chroma feature
-    estimated_key_index = np.argmax(mean_chroma)
-    estimated_key = chroma_to_key[estimated_key_index]
+    # Major and minor key templates (C major and A minor as reference)
+    major_template = np.array([
+        [1, 0, 0, 1, 0, 1, 0, 1, 0, 0, 0, 1],  # C major pattern
+        [0, 1, 0, 0, 1, 0, 1, 0, 1, 0, 0, 0],  # C# major pattern
+        [0, 0, 1, 0, 0, 1, 0, 1, 0, 1, 0, 0],  # D major pattern
+        [0, 0, 0, 1, 0, 0, 1, 0, 1, 0, 1, 0],  # D# major pattern
+        [0, 0, 0, 0, 1, 0, 0, 1, 0, 1, 0, 1],  # E major pattern
+        [1, 0, 0, 0, 0, 1, 0, 0, 1, 0, 1, 0],  # F major pattern
+        [0, 1, 0, 0, 0, 0, 1, 0, 0, 1, 0, 1],  # F# major pattern
+        [1, 0, 1, 0, 0, 0, 0, 1, 0, 0, 1, 0],  # G major pattern
+        [0, 1, 0, 1, 0, 0, 0, 0, 1, 0, 0, 1],  # G# major pattern
+        [1, 0, 1, 0, 1, 0, 0, 0, 0, 1, 0, 0],  # A major pattern
+        [0, 1, 0, 1, 0, 1, 0, 0, 0, 0, 1, 0],  # A# major pattern
+        [0, 0, 1, 0, 1, 0, 1, 0, 0, 0, 0, 1]   # B major pattern
+    ])
 
-    # Print the detected key and BPM
+    minor_template = np.array([
+        [1, 0, 1, 0, 1, 0, 0, 1, 0, 1, 0, 0],  # A minor pattern
+        [0, 1, 0, 1, 0, 1, 0, 0, 1, 0, 1, 0],  # A# minor pattern
+        [0, 0, 1, 0, 1, 0, 1, 0, 0, 1, 0, 1],  # B minor pattern
+        [1, 0, 0, 1, 0, 1, 0, 1, 0, 0, 1, 0],  # C minor pattern
+        [0, 1, 0, 0, 1, 0, 1, 0, 1, 0, 0, 1],  # C# minor pattern
+        [1, 0, 1, 0, 0, 1, 0, 1, 0, 1, 0, 0],  # D minor pattern
+        [0, 1, 0, 1, 0, 0, 1, 0, 1, 0, 1, 0],  # D# minor pattern
+        [0, 0, 1, 0, 1, 0, 0, 1, 0, 1, 0, 1],  # E minor pattern
+        [1, 0, 0, 1, 0, 1, 0, 0, 1, 0, 1, 0],  # F minor pattern
+        [0, 1, 0, 0, 1, 0, 1, 0, 0, 1, 0, 1],  # F# minor pattern
+        [1, 0, 1, 0, 0, 1, 0, 1, 0, 0, 1, 0],  # G minor pattern
+        [0, 1, 0, 1, 0, 0, 1, 0, 1, 0, 0, 1]   # G# minor pattern
+    ])
+
+    # Compute correlations with major and minor templates
+    major_scores = np.dot(major_template, mean_chroma)
+    minor_scores = np.dot(minor_template, mean_chroma)
+
+    # Find the most likely major and minor keys
+    major_key_index = np.argmax(major_scores)
+    minor_key_index = np.argmax(minor_scores)
+
+    # Determine whether major or minor key is more dominant
+    if major_scores[major_key_index] > minor_scores[minor_key_index]:
+        estimated_key = chroma_to_key[major_key_index] + " Major"
+    else:
+        estimated_key = chroma_to_key[minor_key_index] + " Minor"
+
+    # Print results
     print("Detected Key:", estimated_key)
     print("Detected Tempo:", tempo)
 
     return tempo, estimated_key
+
 
 
 def change_bpm(input_file: str, output_file: str, target_bpm: float):
@@ -112,14 +154,16 @@ def change_bpm(input_file: str, output_file: str, target_bpm: float):
 
 
 def main():
-    song_file = "Really Dont Care.mp3"
+    song_file = "Nuvole Bianche.mp3"
 
-    vocals_filepath, instrumental_filepath = isolate_song_parts(song_file)
+    tempo, key = get_key_and_bpm(song_file)
 
-    tempo, key = get_key_and_bpm(vocals_filepath)
+    #vocals_filepath, instrumental_filepath = isolate_song_parts(song_file)
 
-    new_tempo = int(input("Enter new tempo (BPM) for song: "))
-    change_bpm(vocals_filepath, "testoutput.mp3", new_tempo)
+    #tempo, key = get_key_and_bpm(vocals_filepath)
+
+    #new_tempo = int(input("Enter new tempo (BPM) for song: "))
+    #change_bpm(vocals_filepath, "testoutput.mp3", new_tempo)
 
 
 
