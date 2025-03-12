@@ -1,3 +1,5 @@
 separated/
-songs/
+songs/*
+!songs/.gitkeep
+
 __pycache__/
