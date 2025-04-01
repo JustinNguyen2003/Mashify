@@ -26,3 +26,5 @@ With `pip install`, ensure the following are installed as well:
 - scipy
 - matplotlib
 - demucs
+- pandas
+- soundfile

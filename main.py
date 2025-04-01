@@ -1,7 +1,7 @@
 import song_analysis as sa
 
 def main():
-    song_path = "songs/cherry_wine.mp3" # your file name here
+    song_path = "songs/blue.mp3" # your file name here
     config_file = "./config.yaml" # configuration file for the model used for song segmentation
 
     print("Extracting estimated BPM...")
@@ -29,6 +29,10 @@ def main():
     print("Labeling the segment boundaries...")
     (segment_pdf, segment_csv) = sa.label_segment_boundaries(config_file, song_path)
     print("The segmentation outputs are located at: " + segment_pdf + ", " + segment_csv)
+
+    print("Writing audio files for each of the song's segments...")
+    segment_files = sa.write_segments(song_path, segment_csv)
+    print("The audio files of the song's segments are located at: ", segment_files)
 
 if __name__ == "__main__":
     main()

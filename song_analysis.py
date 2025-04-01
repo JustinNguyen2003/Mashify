@@ -5,11 +5,14 @@ import matplotlib.pyplot as plt
 from scipy.stats import zscore
 import demucs.separate
 from ssmnet import core
+import pandas as pd
 
 from dataclasses import dataclass
 from typing import List, Tuple
 import os
 import yaml
+import IPython.display as ipd
+import soundfile as sf
 
 # returns a song's tempo
 def get_bpm(song_file: str):
@@ -183,3 +186,64 @@ def label_segment_boundaries(config_file: str, audio_file: str) -> Tuple[str, st
     ssmnet_deploy.m_export_csv(hat_boundary_sec_v, output_csv_file)
 
     return (output_pdf_file, output_csv_file)
+
+def segment_in_samples(segments: List, sr: int) -> List:
+    """
+    Helper function that converts segments in time to segments in samples.
+
+    Args:
+        segments (list): List of song segment times.
+        sr (int): Sample rate of the song.
+
+    Returns:
+        segment_samples (list): List of the song's segments in samples.
+    """
+    segments_samples = []
+
+    for time in segments:
+        sample_num = int(time * sr)
+        segments_samples.append(sample_num)
+
+    return segments_samples
+
+def write_segments(song: str, segment_csv: str) -> str:
+    """
+    Writes audio files for each song's segments. Each audio file is 
+    named segment{i} where i is the segment's number.
+
+    Args:
+        song (str): Path to the song file used.
+        segment_csv (str): Path to the csv file containing the song's segments in times.
+
+    Returns:
+        segment_dir (str): Path to the audio files of the segments.
+    """
+    song_name = os.path.splitext(os.path.basename(song))[0]
+    segment_dir = "song_segments/" + song_name + "/"
+    os.makedirs(segment_dir, exist_ok=True)
+
+    # get segment times from the output csv using pandas
+    song_segments = pd.read_csv(segment_csv)
+    song_seg_times = song_segments['segment_start_time_sec']
+
+    # load with librosa
+    (song_samples, srate) = librosa.load(song)
+    # ipd.Audio(song_samples, rate=srate1)
+
+    song_seg_samples = segment_in_samples(song_seg_times, srate)
+
+    # test segments
+    # print(song_seg_samples)
+    # ipd.Audio(song1[song1_seg_samples[11]:], rate=srate1)
+    # sf.write("segtest.mp3", song1[song1_seg_samples[11]:], srate1)
+
+    # write an audio file for each segment (i.e. song_segments/song_name/segment1.mp3)
+    for (i,seg) in enumerate(song_seg_samples):
+        # handle last case
+        if (i == (len(song_seg_samples) - 1)):
+            current_seg = song_samples[seg:]
+        else:
+            current_seg = song_samples[song_seg_samples[i]:song_seg_samples[i+1]]
+        sf.write(f"song_segments/{song_name}/segment{i+1}.mp3", current_seg, srate)
+    
+    return segment_dir

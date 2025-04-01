@@ -2,5 +2,6 @@ separated/
 songs/*
 !songs/.gitkeep
 ssmnet_outputs/
+song_segments/
 
 __pycache__/
