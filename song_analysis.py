@@ -4,10 +4,17 @@ import scipy.linalg
 import matplotlib.pyplot as plt
 from scipy.stats import zscore
 import demucs.separate
+from ssmnet import core
+import pandas as pd
 
 from dataclasses import dataclass
 from typing import List, Tuple
 import os
+import yaml
+import IPython.display as ipd
+import soundfile as sf
+
+import utils
 
 # returns a song's tempo
 def get_bpm(song_file: str):
@@ -129,7 +136,7 @@ def isolate_song_parts(song_filepath: str):
         demucs.separate.main(["--mp3", "-n", "htdemucs", song_filepath]) # using the htdemucs model
         print("Separation completed successfully.")
 
-        song_name = song_filepath.replace(".mp3", "")
+        song_name = os.path.splitext(os.path.basename(song_filepath))[0] # song_filepath.replace(".mp3", "")
         return(f"separated/htdemucs/{song_name}/vocals.mp3", f"separated/htdemucs/{song_name}/other.mp3", 
                f"separated/htdemucs/{song_name}/bass.mp3", f"separated/htdemucs/{song_name}/drums.mp3")
 
@@ -142,3 +149,106 @@ def isolate_song_parts(song_filepath: str):
         print(f"An unexpected error occurred: {e}")
         raise RuntimeError("Demucs processing failed.") from e
     return (None, None)
+
+def label_segment_boundaries(config_file: str, audio_file: str) -> Tuple[str, str]:
+    """
+    Labels the song's segment boundaries.
+
+    Args:
+        config_file (str): Path to the configuration file used for the model.
+        audio_file (str): Path to the audio file to segment.
+
+    Returns:
+        tuple (output_pdf_file, output_csv_file)
+        where
+            output_pdf_file (str): Path to the pdf output graph
+            output_csv_file (str): Path to the csv output containing the song's segment boundaries
+    """
+    song_name = os.path.splitext(os.path.basename(audio_file))[0]
+    os.makedirs("ssmnet_outputs/" + song_name, exist_ok=True) 
+
+    output_pdf_file = "./ssmnet_outputs/" + song_name + "/" + song_name + "_output_pdf.pdf"
+    output_csv_file = "./ssmnet_outputs/" + song_name + "/" + song_name + "_output_csv.csv"
+
+    with open(config_file, "r", encoding="utf-8") as fid:
+        config_d = yaml.safe_load(fid)
+
+    ssmnet_deploy = core.SsmNetDeploy(config_d)
+
+    # get the audio features patches
+    feat_3m, time_sec_v = ssmnet_deploy.m_get_features(audio_file)
+    # process through SSMNet to get the Self-Similarity-Matrix and Novelty-Curve
+    hat_ssm_np, hat_novelty_np = ssmnet_deploy.m_get_ssm_novelty(feat_3m)
+    # estimate segment boundries from the Novelty-Curve
+    hat_boundary_sec_v, hat_boundary_frame_v = ssmnet_deploy.m_get_boundaries(hat_novelty_np, time_sec_v)
+
+    # export as .pdf
+    ssmnet_deploy.m_plot(hat_ssm_np, hat_novelty_np, hat_boundary_frame_v, output_pdf_file)
+    # export as .csv
+    ssmnet_deploy.m_export_csv(hat_boundary_sec_v, output_csv_file)
+
+    return (output_pdf_file, output_csv_file)
+
+def segment_in_samples(segments: List, sr: int) -> List:
+    """
+    Helper function that converts segments in time to segments in samples.
+
+    Args:
+        segments (list): List of song segment times.
+        sr (int): Sample rate of the song.
+
+    Returns:
+        segment_samples (list): List of the song's segments in samples.
+    """
+    segments_samples = []
+
+    for time in segments:
+        sample_num = int(time * sr)
+        segments_samples.append(sample_num)
+
+    return segments_samples
+
+def write_segments(song: str, segment_csv: str) -> str:
+    """
+    Writes audio files for each song's segments. Each audio file is 
+    named segment{i} where i is the segment's number.
+
+    Args:
+        song (str): Path to the song file used.
+        segment_csv (str): Path to the csv file containing the song's segments in times.
+
+    Returns:
+        segment_dir (str): Path to the audio files of the segments.
+    """
+    song_name = os.path.splitext(os.path.basename(song))[0]
+    segment_dir = "song_segments/" + song_name + "/"
+    os.makedirs(segment_dir, exist_ok=True)
+
+    # get segment times from the output csv using pandas
+    song_segments = pd.read_csv(segment_csv)
+    song_seg_times = song_segments['segment_start_time_sec']
+
+    # load with librosa
+    (song_samples, srate) = librosa.load(song)
+    # ipd.Audio(song_samples, rate=srate1)
+
+    song_seg_samples = segment_in_samples(song_seg_times, srate)
+
+    # test segments
+    # print(song_seg_samples)
+    # ipd.Audio(song1[song1_seg_samples[11]:], rate=srate1)
+    # sf.write("segtest.mp3", song1[song1_seg_samples[11]:], srate1)
+
+    # clear out the song_directory
+    utils.clear_directory(segment_dir)
+
+    # write an audio file for each segment (i.e. song_segments/song_name/segment1.mp3)
+    for (i,seg) in enumerate(song_seg_samples):
+        # handle last case
+        if (i == (len(song_seg_samples) - 1)):
+            current_seg = song_samples[seg:]
+        else:
+            current_seg = song_samples[song_seg_samples[i]:song_seg_samples[i+1]]
+        sf.write(f"{segment_dir}segment{i+1}.mp3", current_seg, srate)
+    
+    return segment_dir
