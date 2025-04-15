@@ -8,6 +8,7 @@ import soundfile as sf
 import math
 
 import song_analysis as sa
+import utils
 
 def match_keys(song1_key: str, song2_key: str, song1_samples: np.ndarray, sr1: np.number, song2_samples: np.ndarray, sr2: np.number) -> Tuple[str, str]:
     """
@@ -129,3 +130,99 @@ def match_bpm(song_path1: str, song_path2:str, song1_samples: np.ndarray, sr1: n
     sf.write(song2_stretched_dir, song2_stretched, sr2)
 
     return (song1_stretched_dir, song2_stretched_dir)
+
+def crossfade_segments(seg1: np.ndarray, seg2: np.ndarray, sr: np.number, fade_duration=0.5) -> np.ndarray:
+    """
+    Crossfades two audio segments by a certain given fade duration (seconds)
+
+    Args:
+        seg1 (np.ndrray): Segment 1 in samples.
+        seg2 (np.ndarray): Segment 2 in samples.
+        sr (np.number): Audio's sample rate.
+        fade_duration (float): length of crossfade. Defaults to 0.5 if not specified.
+
+    Returns:
+        np.ndarray: Combined segments with the crossfaded.
+    """
+    fade_len = int(sr * fade_duration)
+    
+    if len(seg1) < fade_len or len(seg2) < fade_len:
+        raise ValueError("Segment too short for crossfade")
+
+    fade_out = np.linspace(1, 0, fade_len)
+    fade_in = np.linspace(0, 1, fade_len)
+
+    seg1_end = seg1[-fade_len:] * fade_out
+    seg2_start = seg2[:fade_len] * fade_in
+
+    overlapped = seg1_end + seg2_start
+    combined = np.hstack((seg1[:-fade_len], overlapped, seg2[fade_len:]))
+    return combined
+
+def apply_fade_out(audio: np.ndarray, sr: np.number, fade_duration=2.0):
+    """
+    Applies a fade out by a certain given duration (seconds)
+
+    Args:
+        audio (np.ndrray): Audio to fade in samples.
+        sr (np.number): Audio's sample rate.
+        fade_duration (float): Length of fade. Defaults to 2.0 if not specified.
+
+    Returns:
+        np.ndarray: Segment with fade out applied.
+    """
+    fade_len = int(sr * fade_duration)
+    if len(audio) < fade_len:
+        fade_len = len(audio)
+    fade_curve = np.linspace(1.0, 0.0, fade_len)
+    audio[-fade_len:] *= fade_curve
+    return audio
+
+def generate_mashup(segment_files1, segment_files2):
+    """
+    Algorithmically produces a mashup which follows the following song structure:
+        Intro of song A, Verse of song A, Verse of song B, Chorus of song B, Chorus of song A
+    Writes an output file named "mash.mp3"
+
+    Assumes that the two songs given have corresponding segments that match with a song's structure as folllows:
+        Segment 1: Intro, Segments 2-3: Verse, Segments 4-5: Chorus
+
+    Args:
+        segment1_files (str): Filepath to the audio file segments of song 1.
+        segment2_files (str): Filepath to the audio file segments of song 2.
+    """
+    segments1 = utils.get_all_filepaths_sorted(segment_files1)
+    segments2 = utils.get_all_filepaths_sorted(segment_files2)
+
+    # Assume the following structure:
+    # segment 1: intro
+    # segments 2-3: verse
+    # segments 4-5: chorus
+    sr = None
+
+    introA, sr = librosa.load(segments1[0], sr=None)
+    verseA1, _ = librosa.load(segments1[1], sr=sr)
+    verseA2, _ = librosa.load(segments1[2], sr=sr)
+    chorusA1, _ = librosa.load(segments1[3], sr=sr)
+    chorusA2, _ = librosa.load(segments1[4], sr=sr)
+
+    verseB1, _ = librosa.load(segments2[1], sr=sr)
+    verseB2, _ = librosa.load(segments2[2], sr=sr)
+    chorusB1, _ = librosa.load(segments2[3], sr=sr)
+    chorusB2, _ = librosa.load(segments2[4], sr=sr)
+
+    # Combine with crossfades between A and B sections
+    result = introA
+    result = np.hstack((result, verseA1, verseA2))
+
+    result = crossfade_segments(result, verseB1, sr, 0.25)
+    result = np.hstack((result, verseB2, chorusB1, chorusB2))
+
+    result = crossfade_segments(result, chorusA1, sr, 0.25)
+    result = np.hstack((result, chorusA2))
+
+    # Apply fade-out to the final section
+    result = apply_fade_out(result, sr, fade_duration=2.0)
+
+    sf.write("mash.mp3", result, sr)
+    print("Mashup saved as mash.mp3")

@@ -1,6 +1,4 @@
 separated/
-songs/*
-!songs/.gitkeep
 ssmnet_outputs/
 song_segments/
 songs_pitched/

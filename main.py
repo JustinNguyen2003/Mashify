@@ -2,14 +2,14 @@ import librosa
 import song_analysis as sa
 import mashing_utils as mu
 
-VOCAL_SEGMENT = True
+VOCAL_SEGMENT = False
 
 def main():
     config_file = "./config.yaml" # configuration file for the model used for song segmentation
 
     # file names here
-    song_path1 = "songs/cherry_wine.mp3" 
-    song_path2 = "songs/perfect_pair.mp3" 
+    song_path1 = "songs/cherry_wine.mp3"
+    song_path2 = "songs/perfect_pair.mp3"
 
     print("Extracting chroma features of the two songs...")
     chroma_vector1 = sa.extract_chroma_features(song_path1)
@@ -56,8 +56,6 @@ def main():
         song1_dir = song1_stretched_dir
         song2_dir = song2_stretched_dir
 
-    # print(song1_dir, song2_dir)
-
     print("Labeling the segment boundaries for song 1...")
     (segment_pdf1, segment_csv1) = sa.label_segment_boundaries(config_file, song1_dir)
     # print("The segmentation outputs for song 1 are located at: " + segment_pdf1 + ", " + segment_csv1)
@@ -73,6 +71,9 @@ def main():
     print("Writing audio files for each of song 2's segments...")
     segment_files2 = sa.write_segments(song2_stretched_dir, segment_csv2)
     print("The audio files of song 2's segments are located at: ", segment_files2)
+
+    print("Generating mashup...")
+    mu.generate_mashup(segment_files1, segment_files2)
 
 if __name__ == "__main__":
     main()
