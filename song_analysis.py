@@ -14,6 +14,8 @@ import yaml
 import IPython.display as ipd
 import soundfile as sf
 
+import utils
+
 # returns a song's tempo
 def get_bpm(song_file: str):
     # Load the audio file
@@ -134,7 +136,7 @@ def isolate_song_parts(song_filepath: str):
         demucs.separate.main(["--mp3", "-n", "htdemucs", song_filepath]) # using the htdemucs model
         print("Separation completed successfully.")
 
-        song_name = song_filepath.replace(".mp3", "")
+        song_name = os.path.splitext(os.path.basename(song_filepath))[0] # song_filepath.replace(".mp3", "")
         return(f"separated/htdemucs/{song_name}/vocals.mp3", f"separated/htdemucs/{song_name}/other.mp3", 
                f"separated/htdemucs/{song_name}/bass.mp3", f"separated/htdemucs/{song_name}/drums.mp3")
 
@@ -237,6 +239,9 @@ def write_segments(song: str, segment_csv: str) -> str:
     # ipd.Audio(song1[song1_seg_samples[11]:], rate=srate1)
     # sf.write("segtest.mp3", song1[song1_seg_samples[11]:], srate1)
 
+    # clear out the song_directory
+    utils.clear_directory(segment_dir)
+
     # write an audio file for each segment (i.e. song_segments/song_name/segment1.mp3)
     for (i,seg) in enumerate(song_seg_samples):
         # handle last case
@@ -244,6 +249,6 @@ def write_segments(song: str, segment_csv: str) -> str:
             current_seg = song_samples[seg:]
         else:
             current_seg = song_samples[song_seg_samples[i]:song_seg_samples[i+1]]
-        sf.write(f"song_segments/{song_name}/segment{i+1}.mp3", current_seg, srate)
+        sf.write(f"{segment_dir}segment{i+1}.mp3", current_seg, srate)
     
     return segment_dir
