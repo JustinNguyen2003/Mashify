@@ -213,13 +213,13 @@ def generate_mashup(segment_files1, segment_files2):
 
     # Combine with crossfades between A and B sections
     result = introA
-    result = np.hstack((result, verseA1, verseA2))
+    result = np.hstack((result, verseA1)) # np.hstack((result, verseA1, verseA2))
 
-    result = crossfade_segments(result, verseB1, sr, 0.25)
-    result = np.hstack((result, verseB2, chorusB1, chorusB2))
+    result = crossfade_segments(result, verseB2, sr) # crossfade_segments(result, verseB1, sr)
+    result = np.hstack((result, chorusB1)) # np.hstack((result, verseB2, chorusB1, chorusB2))
 
-    result = crossfade_segments(result, chorusA1, sr, 0.25)
-    result = np.hstack((result, chorusA2))
+    result = crossfade_segments(result, chorusA2, sr)
+    # result = np.hstack((result, chorusA2))
 
     # Apply fade-out to the final section
     result = apply_fade_out(result, sr, fade_duration=2.0)
