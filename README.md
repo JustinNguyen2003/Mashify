@@ -28,5 +28,3 @@ With `pip install`, ensure the following are installed as well:
 - demucs
 - pandas
 - soundfile
-- pydub
-- ffmpeg? (windows download and add to path)
