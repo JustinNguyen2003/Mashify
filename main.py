@@ -2,12 +2,15 @@ import librosa
 import song_analysis as sa
 import mashing_utils as mu
 
-VOCAL_SEGMENT = False
+VOCAL_SEGMENT = False # Segment songs based on vocals
+USE_AVG_TEMPO = False # Uses average bpm when matching tempos if set to true. Matches to faster song otherwise.
 
 def main():
     config_file = "./config.yaml" # configuration file for the model used for song segmentation
 
     # file names here
+    # song 1 starts in the mash, choose which song to start with by putting its 
+    # file path in song_path1
     song_path1 = "songs/cherry_wine.mp3"
     song_path2 = "songs/perfect_pair.mp3"
 
@@ -34,11 +37,10 @@ def main():
     (song1_pitched_samples, sr1) = librosa.load(song1_pitched_dir)
     (song2_pitched_samples, sr2) = librosa.load(song2_pitched_dir)
 
-    (song1_stretched_dir, song2_stretched_dir) = mu.match_bpm(song1_pitched_dir, song2_pitched_dir, song1_pitched_samples, sr1, song2_pitched_samples, sr2, use_avg=False)
+    (song1_stretched_dir, song2_stretched_dir) = mu.match_bpm(song1_pitched_dir, song2_pitched_dir, song1_pitched_samples, sr1, song2_pitched_samples, sr2, use_avg=USE_AVG_TEMPO)
     print("The stretched songs with matched bpm are located at: ", song1_stretched_dir, song2_stretched_dir)
 
     if(VOCAL_SEGMENT):
-        # segment based on extracted vocals to not cut off the lyrics
         print("Segmenting based on vocals...")
 
         print("Separating the tracks of song 1...")
