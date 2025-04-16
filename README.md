@@ -28,3 +28,14 @@ With `pip install`, ensure the following are installed as well:
 - demucs
 - pandas
 - soundfile
+
+## Running the Program
+
+1. Put in the paths to the mp3 files of the two songs you wish to mash in `song_path1` and `song_path2`.
+2. Pick customization options based on your preferences in `main.py`.
+    - Choose to use vocals for the song segmentation by setting `VOCAL_SEGMENT` to `True`.
+    - Use the average tempo of the two songs for the mashup by setting `USE_AVG_TEMPO` to `True`.
+    - Pick which song goes first by setting its file path in `song_path1`.
+3. Run `python main.py`
+
+Alternatively, you can also walk through the whole process in the `main.ipynb` notebook.
